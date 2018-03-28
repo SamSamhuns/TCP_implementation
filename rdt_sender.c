@@ -24,14 +24,14 @@
 
 int next_seqno=0;
 int send_base=0;
-int window_size = 1;
+int window_size = 10;
 
 int sockfd, serverlen;
 struct sockaddr_in serveraddr;
 struct itimerval timer; 
 tcp_packet *sndpkt;
 tcp_packet *recvpkt;
-sigset_t sigmask;       
+sigset_t sigmask; 
 
 
 void resend_packets(int sig)
@@ -89,6 +89,9 @@ int main (int argc, char **argv)
     char buffer[DATA_SIZE];
     FILE *fp;
 
+    // Buffer to hold the window of window_size    
+    tcp_packet *send_window[window_size];  
+
     /* check command line arguments */
     if (argc != 4) {
         fprintf(stderr,"usage: %s <hostname> <port> <FILE>\n", argv[0]);
@@ -120,6 +123,28 @@ int main (int argc, char **argv)
     /* build the server's Internet address */
     serveraddr.sin_family = AF_INET;
     serveraddr.sin_port = htons(portno);
+
+    // Assigning the array of tcp_packets in the buffer window to NULL
+    int i = 0;                                                                              
+    while ( i < window_size)                                                                
+    {                                                                                                                                                    
+        send_window[i] =  NULL;                                 
+        i++;                                                                                
+    }     
+
+    //*****************************************************************************************
+    // TEST CODE TO CHECK IF THE BUFFER OF VARIABLE PACKETS HAS BEEN CREATED                  *
+    /*                                                                                        *
+    int ite = 0;                                                                              *
+    while ( ite < window_size)                                                                *
+    {                                                                                         *
+        sndpkt = make_packet(0);                                                              *
+        send_window[ite] = (tcp_packet*)sndpkt;//(tcp_packet*)                                *
+        printf("Priting the ackno of creatd packets %i\n", send_window[ite]->hdr.ackno );     *
+        ite++;                                                                                *
+    }                                                                                         *
+    *///                                                                                      *
+    //*****************************************************************************************
 
     assert(MSS_SIZE - TCP_HDR_SIZE > 0);
 
