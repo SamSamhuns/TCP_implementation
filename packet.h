@@ -1,4 +1,5 @@
 /*
+ * Modified by Samridha sms1198 and Teona tr1348
  * Nabil Rahiman
  * NYU Abudhabi
  * email: nr83@nyu.edu
@@ -27,3 +28,14 @@ typedef struct {
 
 tcp_packet* make_packet(int seq);
 int get_data_size(tcp_packet *pkt);
+
+
+// Nodes for the buffer linked list
+typedef struct {
+	tcp_packet *buffer_pkt;
+	struct nodepkt *next_nodepkt;
+} nodepkt;
+
+
+
+
