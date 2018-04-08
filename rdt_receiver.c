@@ -32,6 +32,8 @@ int main(int argc, char **argv) {
     FILE *fp;
     char buffer[MSS_SIZE];
     struct timeval tp;
+
+    int window_size;
     int next_seqno = 0; // Variable that holds the value for the current required seqno
 
     /* 
@@ -71,6 +73,18 @@ int main(int argc, char **argv) {
     serveraddr.sin_family = AF_INET;
     serveraddr.sin_addr.s_addr = htonl(INADDR_ANY);
     serveraddr.sin_port = htons((unsigned short)portno);
+
+
+    nodepkt *head = NULL;
+    // if there is an error with malloc
+    if (head = malloc(sizeof( nodepkt )) == NULL ) {
+        return 1;
+    }
+
+    head->buffer_pkt = make_packet(0);
+    head->next_nodepkt = NULL;
+
+
 
     /* 
      * bind: associate the parent socket with a port 
@@ -115,7 +129,7 @@ int main(int argc, char **argv) {
         VLOG(DEBUG, "%lu, %d, %d", tp.tv_sec, recvpkt->hdr.data_size, recvpkt->hdr.seqno, recvpkt->hdr.ackno);
 
         // Checking if packets are received in order, if not, send ACK for the original package
-        printf("next seqno = %i and recvpkt->hdr.seqno = %i\n", next_seqno, recvpkt->hdr.seqno );
+        //printf("next seqno = %i and recvpkt->hdr.seqno = %i\n", next_seqno, recvpkt->hdr.seqno );
         if ( next_seqno != recvpkt->hdr.seqno )
         {
             sndpkt = make_packet(0);
@@ -127,7 +141,7 @@ int main(int argc, char **argv) {
                 error("ERROR in sendto");
             }
             VLOG(INFO, "Dropping out of order Packet\n\n");
-            printf("DROP PACKAGE LOOP next seqno = %i and recvpkt->hdr.seqno = %i and sndpck hdr ACK NO %i \n\n", next_seqno, recvpkt->hdr.seqno,sndpkt->hdr.ackno );
+            //printf("DROP PACKAGE LOOP next seqno = %i and recvpkt->hdr.seqno = %i and sndpck hdr ACK NO %i \n\n", next_seqno, recvpkt->hdr.seqno,sndpkt->hdr.ackno );
         }
         // If the packet is received in order
         else
@@ -138,7 +152,7 @@ int main(int argc, char **argv) {
             sndpkt->hdr.ackno = recvpkt->hdr.seqno + recvpkt->hdr.data_size;
             next_seqno = sndpkt->hdr.ackno; // Update next_seqno to the hdr.ackno
 
-            printf("SEND PACKAGE LOOP next seqno = %i and recvpkt->hdr.seqno = %i and sndpck hdr ACK NO %i \n\n", next_seqno, recvpkt->hdr.seqno,sndpkt->hdr.ackno );
+            //printf("SEND PACKAGE LOOP next seqno = %i and recvpkt->hdr.seqno = %i and sndpck hdr ACK NO %i \n\n", next_seqno, recvpkt->hdr.seqno,sndpkt->hdr.ackno );
             sndpkt->hdr.ctr_flags = ACK;
             if (sendto(sockfd, sndpkt, TCP_HDR_SIZE, 0, 
                     (struct sockaddr *) &clientaddr, clientlen) < 0) {
