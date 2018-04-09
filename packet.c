@@ -5,7 +5,8 @@
  * email: nr83@nyu.edu
  */
 #include <stdlib.h>
-#include"packet.h"
+#include <stdio.h>
+#include "packet.h"
 
 static tcp_packet zero_packet = {.hdr={0}};
 /*
