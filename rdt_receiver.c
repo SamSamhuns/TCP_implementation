@@ -33,7 +33,6 @@ int main(int argc, char **argv) {
     char buffer[MSS_SIZE];
     struct timeval tp;
 
-    int window_size;
     int next_seqno = 0; // Variable that holds the value for the current required seqno
 
     /* 
@@ -74,18 +73,43 @@ int main(int argc, char **argv) {
     serveraddr.sin_addr.s_addr = htonl(INADDR_ANY);
     serveraddr.sin_port = htons((unsigned short)portno);
 
-
+    
     nodepkt *head = NULL;
-    head = malloc(sizeof(nodepkt));
+    head = malloc(sizeof( nodepkt ));
     // if there is an error with malloc
-    if (head == NULL ) {
+    if ( head == NULL ) {
         return 1;
     }
-
-    head->buffer_pkt = make_packet(0);
+    head->data_nodepkt = make_packet(0);
     head->next_nodepkt = NULL;
 
+    /*
+    *************************************************************************************************
+    //TEST DEBUG CODE for checking Swap method for the Bubble sort function 
+    recvpkt = make_packet(0);
+    sndpkt = make_packet(0);
+    recvpkt->hdr.ackno = 9999;
+    sndpkt->hdr.ackno = 1000; 
+    push( head, recvpkt );
+    push( head, sndpkt );
 
+    // Traversing through list
+    nodepkt *current = head;
+    while (current->next_nodepkt != NULL) {
+        tcp_packet *temp = current->buffer_pkt;
+        current->buffer_pkt = current->next_nodepkt->buffer_pkt;
+        current->next_nodepkt->buffer_pkt = temp;
+        current = current->next_nodepkt;
+
+    }
+    nodepkt *current1 = head;
+    while ( current1 != NULL ) {
+        printf("REMEMBER THIS IS FOR THE TEST%i\n", current1->buffer_pkt->hdr.ackno );
+        current1 = current1->next_nodepkt;
+    }
+
+    ************************************************************************************************
+    */
 
     /* 
      * bind: associate the parent socket with a port 
@@ -111,6 +135,14 @@ int main(int argc, char **argv) {
         }
         recvpkt = (tcp_packet *) buffer;
         assert(get_data_size(recvpkt) <= DATA_SIZE);
+
+
+
+        //*******************************************************************
+        push( head, recvpkt );
+        //*******************************************************************
+
+
 
         // ***********************************************************************************************************************
         // NOTE TO NABIL
@@ -161,5 +193,14 @@ int main(int argc, char **argv) {
             }
         }  
     }
+
+
+        //*******************************************************************
+        nodepkt *current = head;
+        while ( current != NULL ) {
+            printf("Printing the seqno of packets in linked list %i\n", current->data_nodepkt->hdr.seqno );
+            current = current->next_nodepkt;
+        }
+        //*******************************************************************
     return 0;
 }
