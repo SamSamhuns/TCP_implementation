@@ -43,17 +43,17 @@ void push ( nodepkt * head, tcp_packet *buffer_pkt )
 // Removes the first item from the list
 // And returns the packet that was initially stored at the head of the linked list 
 int pop (nodepkt ** head) {
-    int ret_val = -1;
+    //tcp_packet *ret_val;
     nodepkt *following_nodepkt = NULL;
 
     if (*head == NULL) {
-        return -1;
+        return -1; // If there are no nodes to pop
     }
 
     following_nodepkt= (*head)->next_nodepkt;
-    ret_val = (*head)-> buffer_pkt;
+    //ret_val = (*head)-> buffer_pkt;
     free(*head);
     *head = following_nodepkt;
 
-    return ret_val;
+    return 1; // Upon succesful popping
 }
