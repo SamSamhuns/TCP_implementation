@@ -76,8 +76,9 @@ int main(int argc, char **argv) {
 
 
     nodepkt *head = NULL;
+    head = malloc(sizeof(nodepkt));
     // if there is an error with malloc
-    if (head = malloc(sizeof( nodepkt )) == NULL ) {
+    if (head == NULL ) {
         return 1;
     }
 
