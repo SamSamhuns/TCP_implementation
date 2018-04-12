@@ -34,9 +34,8 @@ int main(int argc, char **argv) {
     FILE *fp;
     char buffer[MSS_SIZE];
     struct timeval tp;
-
     int next_seqno = 0; // Variable that holds the value for the current required seqno
-    //int pkt_add_pointer = 0;
+    
     // Loop for assigning packets with data_size 0 to the array of the tcp packets
     int iter = 0; // Iterator variable
     while ( iter < buffer_size ) {
@@ -179,74 +178,53 @@ int main(int argc, char **argv) {
             }
             else {
                 VLOG(INFO, "Out of order Packet Dropped\n\n");
-                //printf("Next seqno = %i and recvpkt->hdr.seqno = %i and sndpck hdr ACK NO %i \n\n", next_seqno, recvpkt->hdr.seqno,sndpkt->hdr.ackno );
             }
-            if ( buffer_full == 1 && duplicate == 0)
+            if ( buffer_full == 1 && duplicate == 0 ) // Buffer full and no duplicates
             {
                 VLOG(INFO, "Buffer is full: Packet Dropped\n\n");
             }
-
-            /*
-            //TEST CODE For Printing out the contents of the array buffer
-            int iter =0;
-            while ( iter<buffer_size ) {
-                if ( receiver_buffer[iter]->hdr.data_size == 0 )
-                {
-                    printf("Packet with hdr.data_size = 0 found \n");
-                }
-                printf("hdr seqno values %i and hdr->data_size = %i \n", receiver_buffer[iq]->hdr.seqno );
-                iter++;
-            }
-
-
-
-            // if the pkt_add_pointer 
-            if ( pkt_add_pointer >= buffer_size )
-            {
-                pkt_add_pointer = buffer_size - 1;
-            }
-
-            int i = 0;
-            int duplicate = 0;
-            while ( i < buffer_size ) {
-                if ( receiver_buffer[i]->hdr.seqno == recvpkt->hdr.seqno )
-                {
-                    duplicate = 1;
-                    break;
-                }
-                if ( (receiver_buffer[i]->hdr.data_size == 0) ) {
-                    break;
-                }
-                i++;
-            }
-            if ( duplicate == 0)
-            {
-                memcpy(receiver_buffer[pkt_add_pointer], recvpkt, recvpkt->hdr.data_size);
-                pkt_add_pointer++;
-            }*/
- 
+            //printf("Next seqno = %i and recvpkt->hdr.seqno = %i and sndpck hdr ACK NO %i \n\n", next_seqno, recvpkt->hdr.seqno,sndpkt->hdr.ackno ); 
          }
 
         // If the packet is received in order
-        else if (next_seqno == recvpkt->hdr.seqno )
+        if (next_seqno == recvpkt->hdr.seqno )
         {
             fseek(fp, recvpkt->hdr.seqno, SEEK_SET);
             fwrite(recvpkt->data, 1, recvpkt->hdr.data_size, fp);
 
-            /*
-            int i = base_pointer;
-            while ( receiver_buffer[i] != NULL ) {
-
-
-            }
-            */
-
-
-
-
             sndpkt = make_packet(0);
             sndpkt->hdr.ackno = recvpkt->hdr.seqno + recvpkt->hdr.data_size;
             next_seqno = sndpkt->hdr.ackno; // Update next_seqno to the hdr.ackno
+
+            int keep_reading = 0;
+            while ( 1 ) {
+                iter = 0;
+                keep_reading = 0;
+                while ( iter < buffer_size ) {
+                    if ( receiver_buffer[iter]->hdr.seqno == sndpkt->hdr.ackno )
+                    {
+                        // Write form the packet in the recevier buffer to the file
+                        fseek(fp, receiver_buffer[iter]->hdr.seqno, SEEK_SET);
+                        fwrite(receiver_buffer[iter]->data, 1, receiver_buffer[iter]->hdr.data_size, fp);
+
+                        sndpkt = make_packet(0);
+                        sndpkt->hdr.ackno = recvpkt->hdr.seqno + recvpkt->hdr.data_size;
+                        next_seqno = sndpkt->hdr.ackno; // Update next_seqno to the hdr.ackno
+
+                        // Set the writtend packet from buffer to be an empty packet
+                        receiver_buffer[iter]->hdr.seqno = -1;
+                        receiver_buffer[iter]->hdr.data_size = 0;
+                        keep_reading = 1;
+                    }
+                    iter++;
+                }
+                // No matching packets were found in the buffer
+                if ( keep_reading == 0)
+                {
+                    break;
+                }
+            }
+            
 
             //printf("SEND PACKAGE LOOP next seqno = %i and recvpkt->hdr.seqno = %i and sndpck hdr ACK NO %i \n\n", next_seqno, recvpkt->hdr.seqno,sndpkt->hdr.ackno );
             sndpkt->hdr.ctr_flags = ACK;
