@@ -18,16 +18,11 @@
 
 #include "common.h"
 #include "packet.h"
-#define buffer_size 1000
+#define buffer_size 50
 
 tcp_packet *recvpkt;
 tcp_packet *sndpkt;
-
-tcp_packet *receiver_buffer[buffer_size]; // buffer array
-void swap(tcp_packet* *xp, tcp_packet* *yp);
-void bubbleSort(tcp_packet* arr[], int n);
-
-
+tcp_packet *receiver_buffer[buffer_size]; // recevier buffer array of tcp_packets 
 
 int main(int argc, char **argv) {
     int sockfd; /* socket */
@@ -40,16 +35,16 @@ int main(int argc, char **argv) {
     char buffer[MSS_SIZE];
     struct timeval tp;
 
-
-    int ipp = 0;
-    while ( ipp < buffer_size ) {
-        receiver_buffer[ipp] = NULL;
-        ipp++;
-    }
-    int base_pointer = 0; // position of pointer to the current out of order packet
-    int pkt_add_pointer = 0;
-
     int next_seqno = 0; // Variable that holds the value for the current required seqno
+    //int pkt_add_pointer = 0;
+    // Loop for assigning packets with data_size 0 to the array of the tcp packets
+    int iter = 0; // Iterator variable
+    while ( iter < buffer_size ) {
+        receiver_buffer[iter] = make_packet(MSS_SIZE);
+        receiver_buffer[iter]->hdr.data_size = 0; // Assign all created packets to have a data_size of 0
+        receiver_buffer[iter]->hdr.seqno = -1; // Assign all packet hdr.seqno's to -1 for exmpty packets
+        iter++;
+    }
 
     /* 
      * check command line arguments 
@@ -133,7 +128,7 @@ int main(int argc, char **argv) {
 
         // Checking if packets are received in order, if not, send ACK for the original package
         //printf("next seqno = %i and recvpkt->hdr.seqno = %i\n", next_seqno, recvpkt->hdr.seqno );
-        if ( next_seqno != recvpkt->hdr.seqno )
+        if ( next_seqno < recvpkt->hdr.seqno )
         {
             sndpkt = make_packet(0);
             // Ask for the same old packet
@@ -144,62 +139,96 @@ int main(int argc, char **argv) {
                 error("ERROR in sendto");
             }
 
-
-            receiver_buffer[pkt_add_pointer] = ( tcp_packet* ) recvpkt;
-
-            int iq =0;
-            while ( iq <buffer_size) {
-                if ( receiver_buffer[iq] == NULL )
+            printf("Next expected seqno in receiver is %i \n", next_seqno );
+            printf("Current packet received from sender has seqno %i \n", recvpkt->hdr.seqno );
+            /*
+            *
+            * For the receiver buffer, empty buffer packet seqno is -1 with data_size 0 so  
+            * the rcvpkt's seqno number does not match with empty packet seqno's
+            */
+            // Check for duplicate buffered packets in the receiver buffer
+            iter = 0;
+            int duplicate = 0;
+            int buffer_full = 1;
+            while ( iter<buffer_size ) {
+                if ( receiver_buffer[iter]->hdr.seqno == recvpkt->hdr.seqno )
                 {
+                    printf("Duplicate packet not added to present buffer\n");
+                    duplicate = 1;
                     break;
                 }
-                printf("hdr seqno values %i \n", receiver_buffer[iq]->hdr.seqno );
-                iq++;
+                iter++;
             }
-
-            if ( receiver_buffer[pkt_add_pointer] != NULL )
+            
+            // Only continue processing rcvpkt if it is not a duplicate otherwise drop it
+            if ( duplicate == 0 ) 
             {
-                printf("THIS IS FOR THE ASSINGMENT %i \n",receiver_buffer[pkt_add_pointer]->hdr.seqno );
+                // Check if buffer is filled up
+                iter = 0;
+                while ( iter<buffer_size ) {
+                    // Once an empty packet has been discovered replace it with our current recvpkt packet
+                    if ( receiver_buffer[iter]->hdr.seqno == -1 && receiver_buffer[iter]->hdr.data_size == 0 )
+                    {
+                        memcpy(receiver_buffer[iter], recvpkt, recvpkt->hdr.data_size); 
+                        printf("Recvpkt seqno %i added to the receiver_buffer\n", recvpkt->hdr.seqno); 
+                        buffer_full = 0;           
+                        break;
+                    }
+                    iter++;
+                }
             }
-            pkt_add_pointer++;
-            //printf("THIS IS FOR THE ASSINGMENT %i \n",receiver_buffer[pkt_add_pointer]->hdr.seqno );
-            //bubbleSort( receiver_buffer, buffer_size);
-
-    
+            else {
+                VLOG(INFO, "Out of order Packet Dropped\n\n");
+                //printf("Next seqno = %i and recvpkt->hdr.seqno = %i and sndpck hdr ACK NO %i \n\n", next_seqno, recvpkt->hdr.seqno,sndpkt->hdr.ackno );
+            }
+            if ( buffer_full == 1 && duplicate == 0)
+            {
+                VLOG(INFO, "Buffer is full: Packet Dropped\n\n");
+            }
 
             /*
-            // This should only run once
-            // Adds the first packet to the receiver buffer
-            if ( pkt_add_pointer == 0 )
+            //TEST CODE For Printing out the contents of the array buffer
+            int iter =0;
+            while ( iter<buffer_size ) {
+                if ( receiver_buffer[iter]->hdr.data_size == 0 )
+                {
+                    printf("Packet with hdr.data_size = 0 found \n");
+                }
+                printf("hdr seqno values %i and hdr->data_size = %i \n", receiver_buffer[iq]->hdr.seqno );
+                iter++;
+            }
+
+
+
+            // if the pkt_add_pointer 
+            if ( pkt_add_pointer >= buffer_size )
             {
-                receiver_buffer[pkt_add_pointer] = (tcp_packet*)recvpkt;
-                pkt_add_pointer ++;
+                pkt_add_pointer = buffer_size - 1;
             }
 
             int i = 0;
             int duplicate = 0;
-            while ( 1 ) {
+            while ( i < buffer_size ) {
                 if ( receiver_buffer[i]->hdr.seqno == recvpkt->hdr.seqno )
                 {
                     duplicate = 1;
+                    break;
                 }
-                if ( receiver_buffer[i] == NULL ) {
+                if ( (receiver_buffer[i]->hdr.data_size == 0) ) {
                     break;
                 }
                 i++;
             }
             if ( duplicate == 0)
             {
-                receiver_buffer[pkt_add_pointer] = (tcp_packet*)recvpkt;
+                memcpy(receiver_buffer[pkt_add_pointer], recvpkt, recvpkt->hdr.data_size);
                 pkt_add_pointer++;
-                bubbleSort( receiver_buffer, buffer_size);
             }*/
+ 
+         }
 
-            VLOG(INFO, "Out of order Packet\n\n");
-            //printf("DROP PACKAGE LOOP next seqno = %i and recvpkt->hdr.seqno = %i and sndpck hdr ACK NO %i \n\n", next_seqno, recvpkt->hdr.seqno,sndpkt->hdr.ackno );
-        }
         // If the packet is received in order
-        else
+        else if (next_seqno == recvpkt->hdr.seqno )
         {
             fseek(fp, recvpkt->hdr.seqno, SEEK_SET);
             fwrite(recvpkt->data, 1, recvpkt->hdr.data_size, fp);
@@ -227,40 +256,13 @@ int main(int argc, char **argv) {
             }
         }  
     }
+    // Loop to print out final contents of the buffer array
     int ip =0;
-    while ( ip <buffer_size) {
-        if ( receiver_buffer[ip] == NULL )
-        {
-            break;
-        }
-        printf("hdr seqno values %i \n", receiver_buffer[ip]->hdr.seqno );
+    while ( ip < buffer_size) {
+        printf("The Final hdr.seqno values in the array are %i\n", receiver_buffer[ip]->hdr.seqno );
         ip++;
 
     }
     return 0;
 }
 
-
-void swap(tcp_packet* *xp, tcp_packet* *yp)
-{
-    tcp_packet *temp = *xp;
-    *xp = *yp;
-    *yp = temp;
-}
- 
-// A function to implement bubble sort
-void bubbleSort(tcp_packet* arr[], int n)
-{
-   int i, j;
-   for (i = 0; i < n-1; i++)  
-       // Last i elements are already in place 
-       for (j = 0; j < n-i-1; j++) {
-           if ( arr[j] == NULL || arr[j+1] == NULL) {
-             continue;
-           }
-
-           if (arr[j]->hdr.seqno > arr[j+1]->hdr.seqno) {
-              swap(&arr[j], &arr[j+1]);
-           }
-       }
-}
