@@ -232,14 +232,14 @@ int main(int argc, char **argv) {
                     break;
                 }
             }
-
-            //printf("SEND PACKAGE LOOP next seqno = %i and recvpkt->hdr.seqno = %i and sndpck hdr ACK NO %i \n\n", next_seqno, recvpkt->hdr.seqno,sndpkt->hdr.ackno );
-            sndpkt->hdr.ctr_flags = ACK;
-            if (sendto(sockfd, sndpkt, TCP_HDR_SIZE, 0, 
-                    (struct sockaddr *) &clientaddr, clientlen) < 0) {
-                error("ERROR in sendto");
-            }
-        }  
+        }
+        //printf("SEND PACKAGE LOOP next seqno = %i and recvpkt->hdr.seqno = %i and sndpck hdr ACK NO %i \n\n", next_seqno, recvpkt->hdr.seqno,sndpkt->hdr.ackno );
+        sndpkt->hdr.ctr_flags = ACK;
+        if (sendto(sockfd, sndpkt, TCP_HDR_SIZE, 0, 
+                (struct sockaddr *) &clientaddr, clientlen) < 0) {
+            error("ERROR in sendto");
+        }
+        
     }
     // Loop to print out final contents of the buffer array
     int ip =0;
