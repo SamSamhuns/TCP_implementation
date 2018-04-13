@@ -118,10 +118,18 @@ int main(int argc, char **argv) {
             break;
         }
 
+        /* TEST ORINT CODE FOR DEBUG PURPOSES
+        int ipt =0;
+        while ( ipt < buffer_size) {
+            printf("The hdr.seqno values in the array are %i\n", receiver_buffer[ipt]->hdr.seqno );
+            ipt++;
+
+        }
+        */
+
         /* 
          * sendto: ACK back to the client 
          */
-        
         gettimeofday(&tp, NULL);
         VLOG(DEBUG, "%lu, %d, %d", tp.tv_sec, recvpkt->hdr.data_size, recvpkt->hdr.seqno, recvpkt->hdr.ackno);
 
@@ -224,7 +232,6 @@ int main(int argc, char **argv) {
                     break;
                 }
             }
-            
 
             //printf("SEND PACKAGE LOOP next seqno = %i and recvpkt->hdr.seqno = %i and sndpck hdr ACK NO %i \n\n", next_seqno, recvpkt->hdr.seqno,sndpkt->hdr.ackno );
             sndpkt->hdr.ctr_flags = ACK;
