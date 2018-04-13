@@ -166,7 +166,7 @@ int main (int argc, char **argv)
             memcpy(sndpkt->data, buffer, len);
             sndpkt->hdr.seqno = send_base_initial;
 
-            // The packet is uploaded to the send_window buffer
+            // The packet is uploaded to the send_window bufferz
             send_window[i] = (tcp_packet *)sndpkt;
             i++;
 
@@ -204,28 +204,6 @@ int main (int argc, char **argv)
             printf("%d \n", get_data_size(recvpkt));
             assert(get_data_size(recvpkt) <= DATA_SIZE);
 
-            // TEST CODE FOR TESTING END OF FILE
-            //*****************************************************************************************************************
-            /*if ( eof_reach == 1 )
-            {
-                int i =0;
-                while ( i < window_size )
-                {
-                    sndpkt = (tcp_packet*) send_window[i];
-                    if(sendto(sockfd, sndpkt, TCP_HDR_SIZE + get_data_size(sndpkt), 0, 
-                            ( const struct sockaddr *)&serveraddr, serverlen) < 0)
-                    {
-                        error("sendto");
-                    };  
-                    i++;
-                }
-            }
-            printf("recv pck ackno %i, next_seqno %i and value of fread %i \n",recvpkt->hdr.ackno, next_seqno, fread(buffer, 1, DATA_SIZE, fp));
-            if ( recvpkt->hdr.ackno == next_seqno && fread(buffer, 1, DATA_SIZE, fp)==0 )
-            {
-                return 0;
-            }*/
-
             //printf("Outside if statement rcvpck ackno = %i, send_base =  %i\n", recvpkt->hdr.ackno, send_base  );
             if ( recvpkt->hdr.ackno >= send_base )
             {
@@ -239,43 +217,6 @@ int main (int argc, char **argv)
                     if ( len <= 0 )
                     {
                         eof_reach = 1;
-            //****************************************************************************************************************
-            // TEST CODE
-                        /*
-                        printf("send_base %i and next_seqno %i BEFORE while loop \n", send_base, next_seqno);
-                        while ( recvpkt->hdr.ackno != next_seqno )
-                        {
-                            printf("send_base %i and next_seqno %i INSIDE while loop \n", send_base, next_seqno);
-                            int i = 0;
-                            while (i < window_size)
-                            {
-                                printf("send_base %i and next_seqno %i INSIDE another while loop \n\n", send_base, next_seqno);
-                                if ( send_window[i] != NULL )
-                                {
-                                    sndpkt = (tcp_packet*) send_window[i];
-                                }
-                                printf("DATA SIZE% i \n",sndpkt->hdr.data_size);
-                                printf("send base before %i\n", send_base );
-                                printf("recvpkt hdr ackno  %i\n", recvpkt->hdr.ackno);
-                                printf("sndpkt hdr seqno  %i\n", sndpkt->hdr.seqno );
-                                if ( recvpkt->hdr.ackno == sndpkt->hdr.seqno )
-                                {
-                                    send_window[i] = NULL;
-                                    send_base += sndpkt->hdr.data_size;
-                                }
-                                printf("send base after %i\n", send_base );
-                                if ( send_window[i] == NULL )
-                                {
-                                    continue;
-                                }
-                                if(sendto(sockfd, sndpkt, TCP_HDR_SIZE + get_data_size(sndpkt), 0, 
-                                            ( const struct sockaddr *)&serveraddr, serverlen) < 0)
-                                {
-                                    error("sendto");
-                                }
-                                i++;
-                            }
-                        }*/
                     }
                     // if eof has been reached and the final packet has been acknowledged 
                     if ( eof_reach == 1 && recvpkt->hdr.ackno == next_seqno )
@@ -311,6 +252,7 @@ int main (int argc, char **argv)
                     }
 
                     // If eof has reached then do not send any more packets but wait for timeouts and resend packets
+                    // If eof has not been reached that then continue sending newly read packets
                     if ( eof_reach != 1)
                     {
                         if(sendto(sockfd, sndpkt, TCP_HDR_SIZE + get_data_size(sndpkt), 0, 
