@@ -22,7 +22,8 @@
 
 #define STDIN_FD 0
 #define RETRY 120 //milli second 
-#define window_size 10 // Setting the window_size to 10 as a window_size CONST
+#define max_window_size 1000 // Setting the window_size to 10 as a window_size CONST
+static int window_size = 10;
 
 int next_seqno=0;
 int send_base=0;
@@ -35,7 +36,7 @@ tcp_packet *recvpkt;
 sigset_t sigmask; 
 
 // Buffer to hold the send window of window_size i.e. array of tcp_packets  
-tcp_packet *send_window[window_size];  
+tcp_packet *send_window[max_window_size];  
 
 void resend_packets(int sig)
 {
