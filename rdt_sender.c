@@ -17,14 +17,14 @@
 #include <time.h>
 #include <assert.h>
 
-#include"packet.h"
-#include"common.h"
+#include "packet.h"
+#include "common.h"
 
 #define STDIN_FD 0
 #define RETRY 120 //milli second 
 #define max_window_size 1000 // Setting the max_window_size to 1000 as a window_size CONST
-static int window_size = 10;
-static int dup_ack_seqno = 0; // To check if duplciate ackno has been sent from the receiver
+int window_size = 10;
+int dup_ack_seqno = 0; // To check if duplciate ackno has been sent from the receiver
 
 int next_seqno=0;
 int send_base=0;
@@ -273,18 +273,16 @@ int main (int argc, char **argv)
 
                 //printf("After sndpack created statement rcvpck ackno = %i, send_base =  %i\n",recvpkt->hdr.ackno, send_base );
                 // if eof has been reached then do not re-assign send_window packets with sndpcks
-                if ( eof_reach != 1)
-                {
+                if ( eof_reach != 1) {
+                    window_size++;
                     send_window[(next_seqno/DATA_SIZE) % window_size] = (tcp_packet *)sndpkt;
-                    //window_size++;
                 }
 
                 VLOG(DEBUG, "Sending packet %d to %s\n", 
                 send_base , inet_ntoa(serveraddr.sin_addr));
                 
                 // if eof has been reached set send_base to recvpkt's ackno
-                if ( eof_reach == 1)
-                {
+                if (eof_reach == 1) {
                     send_base = recvpkt->hdr.ackno;
                 }
 
