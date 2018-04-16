@@ -23,7 +23,7 @@
 #define STDIN_FD 0
 #define RETRY 120 //milli second 
 #define max_window_size 1000 // Setting the max_window_size to 1000 as a window_size CONST
-int window_size = 10;
+int window_size = 1;
 int dup_ack_seqno = 0; // To check if duplciate ackno has been sent from the receiver
 
 int next_seqno=0;
@@ -110,6 +110,8 @@ int main (int argc, char **argv)
     char buffer[DATA_SIZE]; // Send packet buffer
     char recv_buffer[DATA_SIZE]; // Receive packet buffer
     int dup_num = 0; // Variable for recording no of duplicate acks
+    int file_pointer = 0; // Keeps track of pointer that reads from the file
+    //int end_of_array = 0; // To denote the end of the sender buffer array i.e. it is a seqno
     FILE *fp;
 
     /* check command line arguments */
@@ -150,7 +152,7 @@ int main (int argc, char **argv)
 
     init_timer(RETRY, resend_packets);
     next_seqno = 0;
-    int send_base = 0;
+    send_base = 0;
     int send_base_initial = 0; // base var to keep track of the base send for the first window_size packets
  
     // Send the first window_size packets
@@ -168,6 +170,7 @@ int main (int argc, char **argv)
         }
         send_base_initial = next_seqno;
         next_seqno = send_base_initial + len;
+        //end_of_array = next_seqno;
         sndpkt = make_packet(len);
         memcpy(sndpkt->data, buffer, len);
         sndpkt->hdr.seqno = send_base_initial;
@@ -192,7 +195,6 @@ int main (int argc, char **argv)
     }
 
     // Main code for traversing the file and sending all the packets
-    int loop_lim = 0; // Variable to check the next_seqno in the main traversing code
     int eof_reach = 0; // End of file flag to check if the end of file has been reached in the sender's fread pointer
     //Wait for ACK
     do {
@@ -204,12 +206,10 @@ int main (int argc, char **argv)
         {
             error("recvfrom");
         }
-
         recvpkt = (tcp_packet *) recv_buffer;
         printf("%d \n", get_data_size(recvpkt));
         assert(get_data_size(recvpkt) <= DATA_SIZE);
 
-        
         //Test for triple duplicate acks
         if ( dup_ack_seqno == recvpkt->hdr.ackno )
         {
@@ -220,12 +220,15 @@ int main (int argc, char **argv)
         if ( dup_num == 3 )
         {
             dup_num = 0;
-            printf("3 duplicate acks forced timeout\n");
+            //printf("3 duplicate acks forced timeout\n");
             // If three duplicate 
             int iter = 0;
+            //printf("The window size is %d\n", window_size );
             while ( iter < window_size ) {
+                //printf("send_window's hdr seqno is %i \n", send_window[iter]->hdr.seqno );
                 if ( recvpkt->hdr.ackno == send_window[iter]->hdr.seqno )
                 {
+                    //printf("HELLO\n");
                     sndpkt = make_packet(send_window[iter]->hdr.data_size);
                     sndpkt = (tcp_packet*) send_window[iter];
                     if(sendto(sockfd, sndpkt, TCP_HDR_SIZE + get_data_size(sndpkt), 0, 
@@ -233,21 +236,31 @@ int main (int argc, char **argv)
                     {
                         error("sendto");
                     }
+                    //printf("DOES 00111111111\n");
+                    //end_of_array = send_base + ;
                     break;                    
                 }
+                //printf("DOES this run?\n");
                 iter++;
             }
+            //printf("Before the continue\n");
+            //window_size = 1;
             continue;         
         }
+        printf("recvpkt ackno = %i, send_base =  %i\n", recvpkt->hdr.ackno, send_base  );
 
-        //printf("Outside if statement rcvpck ackno = %i, send_base =  %i\n", recvpkt->hdr.ackno, send_base  );
-        if ( recvpkt->hdr.ackno >= send_base )
-        {
+        
+        if ( recvpkt->hdr.ackno >= send_base ) {
             //printf("Inside this if statement\n");
-            while ( send_base < recvpkt->hdr.ackno )
-                {
+            file_pointer = recvpkt->hdr.ackno;
+            while ( send_base < recvpkt->hdr.ackno ) {
 
+                //printf("SEGFAULT 0\n");
+                fseek(fp, file_pointer, SEEK_SET);
+                //printf("SEGFAULT 1\n");
                 len = fread(buffer, 1, DATA_SIZE, fp);
+                //printf("SEGFAULT 3\n");
+
                 printf("%i\n", len );
                 // If len = 0 and all of file has been read, set the eof_reach variable to 0
                 if ( len <= 0 )
@@ -265,15 +278,17 @@ int main (int argc, char **argv)
                 }
 
                 //printf("Inside if statement rcvpck ackno = %i, send_base =  %i\n",recvpkt->hdr.ackno, send_base );
-                loop_lim  = send_base + len;
-                send_base = loop_lim;
+                send_base += len;
                 sndpkt = make_packet(len);
                 memcpy(sndpkt->data, buffer, len);
                 sndpkt->hdr.seqno = next_seqno;
+                //end_of_array += len; 
+                file_pointer += len;
 
                 //printf("After sndpack created statement rcvpck ackno = %i, send_base =  %i\n",recvpkt->hdr.ackno, send_base );
                 // if eof has been reached then do not re-assign send_window packets with sndpcks
-                if ( eof_reach != 1) {
+                if ( eof_reach != 1)
+                {
                     window_size++;
                     send_window[(next_seqno/DATA_SIZE) % window_size] = (tcp_packet *)sndpkt;
                 }
@@ -282,7 +297,8 @@ int main (int argc, char **argv)
                 send_base , inet_ntoa(serveraddr.sin_addr));
                 
                 // if eof has been reached set send_base to recvpkt's ackno
-                if (eof_reach == 1) {
+                if ( eof_reach == 1)
+                {
                     send_base = recvpkt->hdr.ackno;
                 }
 
@@ -295,7 +311,7 @@ int main (int argc, char **argv)
                     {
                         error("sendto");
                     }
-                    next_seqno = next_seqno + len;
+                    next_seqno += len;
                 }
             }
         }
