@@ -16,13 +16,14 @@
 #include <sys/time.h>
 #include <time.h>
 #include <assert.h>
+#include <math.h>
 
 #include "packet.h"
 #include "common.h"
 
 #define STDIN_FD 0
 #define RETRY 120 //milli second 
-#define max_window_size 1000 // Setting the max_window_size to 1000 as a window_size CONST
+#define max_window_size 100000// Setting the max_window_size to 1000 as a window_size CONST
 int window_size = 1;
 int dup_ack_seqno = 0; // To check if duplciate ackno has been sent from the receiver
 
@@ -39,36 +40,25 @@ sigset_t sigmask;
 // Buffer to hold the send window of window_size i.e. array of tcp_packets  
 tcp_packet *send_window[max_window_size];  
 
-void resend_packets(int sig)
+void resend_packet() 
 {
-    if (sig == SIGALRM)
+    int index_to_send = 0;
+    index_to_send = send_base / DATA_SIZE;
+
+    if(sendto(sockfd, send_window[index_to_send], TCP_HDR_SIZE + get_data_size(send_window[index_to_send]), 0, 
+            ( const struct sockaddr *)&serveraddr, serverlen) < 0)
     {
-        //*****************************************************************************************************************
-        //The new packets are replaced in the send_window buffer later in the main code and no index pointer is required
+        error("sendto");
+    };  
 
-        //Resend all packets range between 
-        //sendBase and nextSeqNum
-        VLOG(INFO, "Timout happend");
-        int i =0;
-        while ( i < window_size )
-        {
-            //printf("Are the packets always null\n");
-            // If Packet is NULL, do not send packet
-            if ( send_window[i] == NULL )
-            {
-                i++;
-                continue;   
-            }
-            //printf(" Are we looping forever here with window packet seq no %i and data size %i\n", send_window[i]->hdr.seqno, send_window[i]->hdr.data_size  );
-            sndpkt = (tcp_packet*) send_window[i];
-            if(sendto(sockfd, sndpkt, TCP_HDR_SIZE + get_data_size(sndpkt), 0, 
-                    ( const struct sockaddr *)&serveraddr, serverlen) < 0)
-            {
-                error("sendto");
-            };  
-            i++;
-        }
+}
 
+void signal_handler( int sig )
+{
+    if(sig == SIGALRM){
+
+         VLOG(INFO, "Timout happend");
+         resend_packet();
     }
 }
 
@@ -91,7 +81,7 @@ void stop_timer()
  */
 void init_timer(int delay, void (*sig_handler)(int)) 
 {
-    signal(SIGALRM, resend_packets);
+    signal(SIGALRM, signal_handler);
     timer.it_interval.tv_sec = delay / 1000;    // sets an interval of the timer
     timer.it_interval.tv_usec = (delay % 1000) * 1000;  
     timer.it_value.tv_sec = delay / 1000;       // sets an initial value
@@ -112,7 +102,10 @@ int main (int argc, char **argv)
     int dup_num = 0; // Variable for recording no of duplicate acks
     int file_pointer = 0; // Keeps track of pointer that reads from the file
     //int end_of_array = 0; // To denote the end of the sender buffer array i.e. it is a seqno
+    int next_index = 0; //the index of the next packet to be sent 
+    int current_index = 0; //the index of first packet in the window buffer
     FILE *fp;
+
 
     /* check command line arguments */
     if (argc != 4) {
@@ -150,34 +143,75 @@ int main (int argc, char **argv)
 
     //Stop and wait protocol
 
-    init_timer(RETRY, resend_packets);
+    init_timer(RETRY, signal_handler);
     next_seqno = 0;
     send_base = 0;
     int send_base_initial = 0; // base var to keep track of the base send for the first window_size packets
  
+
+
+    int position_buffer = 0; //position in the buffer where we are inserting the read packet
+    int base = 0;
+    int seq_no = 0;
+
+    while(1){
+
+        len = fread(buffer, 1, DATA_SIZE,fp);
+
+        if(len <= 0){
+
+            sndpkt = make_packet(MSS_SIZE);
+            sndpkt->hdr.data_size = 0;
+            sndpkt->hdr.seqno = -1;
+            send_window[position_buffer] = (tcp_packet*)sndpkt;
+            break;
+        }
+
+
+        base = seq_no;
+        seq_no = base + len;
+        sndpkt = make_packet(len);
+        memcpy(sndpkt->data, buffer,len);
+        sndpkt->hdr.seqno = base;
+
+        send_window[position_buffer] = (tcp_packet *)sndpkt;
+        position_buffer ++;
+
+    }
+
+
+
+    int k = 0;
+
+    while(1){
+
+        if(send_window[k]->hdr.seqno == -1){
+
+            printf("Exiting the loop 00 \n");
+            break;
+        }
+
+        printf("Seqno of packet is %d\n", send_window[k]->hdr.seqno);
+        k++;
+
+    }
+
+
     // Send the first window_size packets
+    position_buffer = 0;
     int i = 0;
+    int length;
     while ( i < window_size)
     {
-        len = fread(buffer, 1, DATA_SIZE, fp);
-        if ( len <= 0 )
-        {
-            VLOG(INFO, "End of File has been reached");
-            sndpkt = make_packet(0);
-            sendto(sockfd, sndpkt, TCP_HDR_SIZE,  0,
-                    (const struct sockaddr *)&serveraddr, serverlen);
-            return 0;
-        }
-        send_base_initial = next_seqno;
-        next_seqno = send_base_initial + len;
-        //end_of_array = next_seqno;
-        sndpkt = make_packet(len);
-        memcpy(sndpkt->data, buffer, len);
-        sndpkt->hdr.seqno = send_base_initial;
 
-        // The packet is uploaded to the send_window bufferz
-        send_window[i] = (tcp_packet *)sndpkt;
-        i++;
+
+
+        length = send_window[position_buffer]->hdr.data_size;
+        send_base_initial = next_seqno;
+        next_seqno = send_base_initial +length;
+        //end_of_array = next_seqno;
+
+
 
         VLOG(DEBUG, "Sending packet %d to %s", 
         send_base_initial, inet_ntoa(serveraddr.sin_addr));
@@ -186,18 +220,27 @@ int main (int argc, char **argv)
          * will assign a random port number so that server can send its
          * response to the src port.
          */
-        if(sendto(sockfd, sndpkt, TCP_HDR_SIZE + get_data_size(sndpkt), 0, 
+        if(sendto(sockfd, send_window[position_buffer], TCP_HDR_SIZE + get_data_size(send_window[position_buffer]), 0, 
                     ( const struct sockaddr *)&serveraddr, serverlen) < 0)
         {
             error("sendto");
         }
 
+        position_buffer++;
+        i++;
+
     }
 
+    printf("Packet sent");
+
+
+    
     // Main code for traversing the file and sending all the packets
     int eof_reach = 0; // End of file flag to check if the end of file has been reached in the sender's fread pointer
     //Wait for ACK
-    do {
+    do {   
+
+
         start_timer();
         //ssize_t recvfrom(int sockfd, void *buf, size_t len, int flags,
         //struct sockaddr *src_addr, socklen_t *addrlen);
@@ -209,6 +252,8 @@ int main (int argc, char **argv)
         recvpkt = (tcp_packet *) recv_buffer;
         printf("%d \n", get_data_size(recvpkt));
         assert(get_data_size(recvpkt) <= DATA_SIZE);
+
+        /*
 
         //Test for triple duplicate acks
         if ( dup_ack_seqno == recvpkt->hdr.ackno )
@@ -247,26 +292,32 @@ int main (int argc, char **argv)
             //window_size = 1;
             continue;         
         }
+
+        */
         printf("recvpkt ackno = %i, send_base =  %i\n", recvpkt->hdr.ackno, send_base  );
 
         
         if ( recvpkt->hdr.ackno >= send_base ) {
             //printf("Inside this if statement\n");
-            file_pointer = recvpkt->hdr.ackno;
+
             while ( send_base < recvpkt->hdr.ackno ) {
 
-                //printf("SEGFAULT 0\n");
-                fseek(fp, file_pointer, SEEK_SET);
-                //printf("SEGFAULT 1\n");
-                len = fread(buffer, 1, DATA_SIZE, fp);
-                //printf("SEGFAULT 3\n");
+    
+ 
+                next_index = (int)ceil( (double)next_seqno / (double)DATA_SIZE ); //index of next packet to be sent
 
-                printf("%i\n", len );
-                // If len = 0 and all of file has been read, set the eof_reach variable to 0
-                if ( len <= 0 )
-                {
-                    eof_reach = 1;
+                printf("NEXT PACKET TO BE SENT %d\n", next_index);
+
+                printf("Index in our buffer %d\n",(int)ceil( (double)next_seqno / (double)DATA_SIZE ));
+                if ( send_window[next_index] ->hdr.seqno == -1){
+
+                    if(send_window[next_index] ->hdr.data_size == 0){
+
+                        eof_reach= 1;
+                     }   
+
                 }
+                
                 // if eof has been reached and the final packet has been acknowledged 
                 if ( eof_reach == 1 && recvpkt->hdr.ackno == next_seqno )
                 {
@@ -278,20 +329,33 @@ int main (int argc, char **argv)
                 }
 
                 //printf("Inside if statement rcvpck ackno = %i, send_base =  %i\n",recvpkt->hdr.ackno, send_base );
+
+                /*
                 send_base += len;
                 sndpkt = make_packet(len);
                 memcpy(sndpkt->data, buffer, len);
                 sndpkt->hdr.seqno = next_seqno;
                 //end_of_array += len; 
                 file_pointer += len;
+                */
+                current_index = send_base / DATA_SIZE; 
+
+                send_base = send_base + send_window[current_index]->hdr.data_size;
+
 
                 //printf("After sndpack created statement rcvpck ackno = %i, send_base =  %i\n",recvpkt->hdr.ackno, send_base );
                 // if eof has been reached then do not re-assign send_window packets with sndpcks
+                /*
                 if ( eof_reach != 1)
                 {
+
+
+                    
                     window_size++;
                     send_window[(next_seqno/DATA_SIZE) % window_size] = (tcp_packet *)sndpkt;
+                    
                 }
+                */
 
                 VLOG(DEBUG, "Sending packet %d to %s\n", 
                 send_base , inet_ntoa(serveraddr.sin_addr));
@@ -306,12 +370,12 @@ int main (int argc, char **argv)
                 // If eof has not been reached that then continue sending newly read packets
                 if ( eof_reach != 1)
                 {
-                    if(sendto(sockfd, sndpkt, TCP_HDR_SIZE + get_data_size(sndpkt), 0, 
+                    if(sendto(sockfd, send_window[next_index], TCP_HDR_SIZE + get_data_size(send_window[next_index]), 0, 
                                 ( const struct sockaddr *)&serveraddr, serverlen) < 0)
                     {
                         error("sendto");
                     }
-                    next_seqno += len;
+                    next_seqno += send_window[next_index]->hdr.data_size;
                 }
             }
         }
@@ -320,4 +384,6 @@ int main (int argc, char **argv)
     free(sndpkt);
     // Control should never reach this
     return 0;
+
+    
 }
