@@ -24,7 +24,7 @@
 #define STDIN_FD 0
 #define RETRY 120 //milli second 
 #define max_window_size 100000// Setting the max_window_size to 1000 as a window_size CONST
-int window_size = 1;
+int window_size = 100;
 int dup_ack_seqno = 0; // To check if duplciate ackno has been sent from the receiver
 
 int next_seqno=0;
@@ -253,7 +253,7 @@ int main (int argc, char **argv)
         printf("%d \n", get_data_size(recvpkt));
         assert(get_data_size(recvpkt) <= DATA_SIZE);
 
-        /*
+        
 
         //Test for triple duplicate acks
         if ( dup_ack_seqno == recvpkt->hdr.ackno )
@@ -267,38 +267,20 @@ int main (int argc, char **argv)
             dup_num = 0;
             //printf("3 duplicate acks forced timeout\n");
             // If three duplicate 
-            int iter = 0;
-            //printf("The window size is %d\n", window_size );
-            while ( iter < window_size ) {
-                //printf("send_window's hdr seqno is %i \n", send_window[iter]->hdr.seqno );
-                if ( recvpkt->hdr.ackno == send_window[iter]->hdr.seqno )
-                {
-                    //printf("HELLO\n");
-                    sndpkt = make_packet(send_window[iter]->hdr.data_size);
-                    sndpkt = (tcp_packet*) send_window[iter];
-                    if(sendto(sockfd, sndpkt, TCP_HDR_SIZE + get_data_size(sndpkt), 0, 
-                        ( const struct sockaddr *)&serveraddr, serverlen) < 0)
-                    {
-                        error("sendto");
-                    }
-                    //printf("DOES 00111111111\n");
-                    //end_of_array = send_base + ;
-                    break;                    
-                }
-                //printf("DOES this run?\n");
-                iter++;
-            }
-            //printf("Before the continue\n");
-            //window_size = 1;
+
+            resend_packet();
+
+            
             continue;         
         }
 
-        */
+        
         printf("recvpkt ackno = %i, send_base =  %i\n", recvpkt->hdr.ackno, send_base  );
 
         
         if ( recvpkt->hdr.ackno >= send_base ) {
             //printf("Inside this if statement\n");
+
 
             while ( send_base < recvpkt->hdr.ackno ) {
 
@@ -330,32 +312,12 @@ int main (int argc, char **argv)
 
                 //printf("Inside if statement rcvpck ackno = %i, send_base =  %i\n",recvpkt->hdr.ackno, send_base );
 
-                /*
-                send_base += len;
-                sndpkt = make_packet(len);
-                memcpy(sndpkt->data, buffer, len);
-                sndpkt->hdr.seqno = next_seqno;
-                //end_of_array += len; 
-                file_pointer += len;
-                */
+
                 current_index = send_base / DATA_SIZE; 
 
                 send_base = send_base + send_window[current_index]->hdr.data_size;
 
 
-                //printf("After sndpack created statement rcvpck ackno = %i, send_base =  %i\n",recvpkt->hdr.ackno, send_base );
-                // if eof has been reached then do not re-assign send_window packets with sndpcks
-                /*
-                if ( eof_reach != 1)
-                {
-
-
-                    
-                    window_size++;
-                    send_window[(next_seqno/DATA_SIZE) % window_size] = (tcp_packet *)sndpkt;
-                    
-                }
-                */
 
                 VLOG(DEBUG, "Sending packet %d to %s\n", 
                 send_base , inet_ntoa(serveraddr.sin_addr));
@@ -375,9 +337,11 @@ int main (int argc, char **argv)
                     {
                         error("sendto");
                     }
+                    printf("Sending packet 0000000000000\n");
                     next_seqno += send_window[next_index]->hdr.data_size;
                 }
             }
+            printf("11111111111111111\n");
         }
         stop_timer();
     } while(1);
