@@ -149,8 +149,9 @@ int main(int argc, char **argv) {
                     // Once an empty packet has been discovered replace it with our current recvpkt packet
                     if ( receiver_buffer[iter]->hdr.seqno == -1 && receiver_buffer[iter]->hdr.data_size == 0 )
                     {
-                        memcpy(receiver_buffer[iter], recvpkt, recvpkt->hdr.data_size); 
-                        //printf("Recvpkt seqno %i added to the receiver_buffer\n", recvpkt->hdr.seqno); 
+                        memcpy(receiver_buffer[iter], recvpkt, MSS_SIZE); 
+                        printf("Recvpkt seqno %i added to the receiver_buffer\n", receiver_buffer[iter]->hdr.seqno); 
+
                         buffer_full = 0;           
                         break;
                     }
@@ -186,7 +187,7 @@ int main(int argc, char **argv) {
                         fwrite(receiver_buffer[iter]->data, 1, receiver_buffer[iter]->hdr.data_size, fp);
 
                         // Update next_seqno to next required pkt
-                        next_seqno = recvpkt->hdr.seqno + recvpkt->hdr.data_size;; 
+                        next_seqno = receiver_buffer[iter]->hdr.seqno + receiver_buffer[iter]->hdr.data_size;
 
                         // Set the written packet from buffer to be an empty packet
                         receiver_buffer[iter]->hdr.seqno = -1;
@@ -214,4 +215,3 @@ int main(int argc, char **argv) {
     }
     return 0;
 }
-
