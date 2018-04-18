@@ -107,21 +107,27 @@ int main(int argc, char **argv) {
         recvpkt = (tcp_packet *) buffer;
         assert(get_data_size(recvpkt) <= DATA_SIZE);
 
-        // ***********************************************************************************************************************
-        // NOTE TO NABIL
-        // On rare occurences, the receiver does not exit because it never receives a recvpkt with a data_size of 0
         if ( recvpkt->hdr.data_size == 0 ) {
             VLOG(INFO, "End Of File has been reached");
             fclose(fp);
             break;
         }
-        
+
+        /* TEST PRINT CODE FOR DEBUG PURPOSES*//*
+        int ipt =0;
+        while ( ipt < buffer_size) {
+            printf("The hdr.seqno values in the array are %i with data_size %i\n", receiver_buffer[ipt]->hdr.seqno, receiver_buffer[ipt]->hdr.data_size );
+            ipt++;
+
+        }*/
+
         gettimeofday(&tp, NULL);
         VLOG(DEBUG, "%lu, %d, %d", tp.tv_sec, recvpkt->hdr.data_size, recvpkt->hdr.seqno);
 
         // If a packet with a higher seqno than currently expected is received 
         // check if the packet can be stored in the receiver buffer
         if ( next_seqno < recvpkt->hdr.seqno ) {
+            printf("Out of order packet received\n");
             //printf("Next expected seqno in receiver is %i \n", next_seqno );
             /*
             * For the receiver buffer, empty buffer packet seqno is -1 with data_size 0 so  
@@ -150,8 +156,6 @@ int main(int argc, char **argv) {
                     if ( receiver_buffer[iter]->hdr.seqno == -1 && receiver_buffer[iter]->hdr.data_size == 0 )
                     {
                         memcpy(receiver_buffer[iter], recvpkt, MSS_SIZE); 
-                        printf("Recvpkt seqno %i added to the receiver_buffer\n", receiver_buffer[iter]->hdr.seqno); 
-
                         buffer_full = 0;           
                         break;
                     }
@@ -187,7 +191,7 @@ int main(int argc, char **argv) {
                         fwrite(receiver_buffer[iter]->data, 1, receiver_buffer[iter]->hdr.data_size, fp);
 
                         // Update next_seqno to next required pkt
-                        next_seqno = receiver_buffer[iter]->hdr.seqno + receiver_buffer[iter]->hdr.data_size;
+                        next_seqno = receiver_buffer[iter]->hdr.seqno + receiver_buffer[iter]->hdr.data_size;; 
 
                         // Set the written packet from buffer to be an empty packet
                         receiver_buffer[iter]->hdr.seqno = -1;
@@ -211,7 +215,8 @@ int main(int argc, char **argv) {
                 (struct sockaddr *) &clientaddr, clientlen) < 0) {
             error("ERROR in sendto");
         }
-        printf("%i receiver ack no \n", sndpkt->hdr.ackno );
+        //printf("sendpacket ACK no %i\n", sndpkt->hdr.ackno );
     }
     return 0;
 }
+
