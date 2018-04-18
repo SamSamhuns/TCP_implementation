@@ -24,7 +24,7 @@
 #define STDIN_FD 0
 #define RETRY 120 //milli second 
 #define max_window_size 100000// Setting the max_window_size to 1000 as a window_size CONST
-int window_size = 100;
+int window_size = 1;
 int dup_ack_seqno = 0; // To check if duplciate ackno has been sent from the receiver
 
 int next_seqno=0;
@@ -104,6 +104,8 @@ int main (int argc, char **argv)
     //int end_of_array = 0; // To denote the end of the sender buffer array i.e. it is a seqno
     int next_index = 0; //the index of the next packet to be sent 
     int current_index = 0; //the index of first packet in the window buffer
+    int current_window_size = 0;
+    int to_be_sent = 0; 
     FILE *fp;
 
 
@@ -265,10 +267,15 @@ int main (int argc, char **argv)
         if ( dup_num == 3 )
         {
             dup_num = 0;
-            //printf("3 duplicate acks forced timeout\n");
+            printf("3 duplicate acks forced timeout\n");
             // If three duplicate 
 
             resend_packet();
+
+            window_size = 1;
+            current_index = send_base / DATA_SIZE;
+            next_seqno = send_window[current_index]->hdr.seqno + send_window[current_index]->hdr.data_size;
+
 
             
             continue;         
@@ -316,6 +323,7 @@ int main (int argc, char **argv)
                 current_index = send_base / DATA_SIZE; 
 
                 send_base = send_base + send_window[current_index]->hdr.data_size;
+                //printf("Send BASE IS %d\n", send_base);
 
 
 
@@ -339,9 +347,65 @@ int main (int argc, char **argv)
                     }
                     printf("Sending packet 0000000000000\n");
                     next_seqno += send_window[next_index]->hdr.data_size;
+                    
+                    window_size++;
                 }
+
+
             }
-            printf("11111111111111111\n");
+
+            printf("111111111111111111111111\n");
+
+            printf("Send base is%d\n", send_base);
+            printf("Nextseqno is %d\n", next_seqno);
+            current_window_size = (int)ceil ((double)(next_seqno - send_base)/ (double)DATA_SIZE);
+            to_be_sent = window_size - current_window_size;
+
+            printf("Before loop Current window size is %d\n", current_window_size);
+
+            int check = 0;//check for end of file
+
+            while(to_be_sent > 0){
+
+                next_index = (int)ceil( (double)next_seqno / (double)DATA_SIZE );
+
+                printf("INSIDE THE LOOP\n");
+
+
+                if ( send_window[next_index] ->hdr.seqno == -1){
+
+                    if(send_window[next_index] ->hdr.data_size == 0){
+
+                        check= 1;
+                        break;
+                     }   
+
+                }
+
+
+                if(check != 1){
+                    if(sendto(sockfd, send_window[next_index], TCP_HDR_SIZE + get_data_size(send_window[next_index]), 0, 
+                                    ( const struct sockaddr *)&serveraddr, serverlen) < 0)
+                        {
+                            error("sendto");
+                        }
+                        printf("Sending packet 0000000000000\n");
+                        next_seqno += send_window[next_index]->hdr.data_size;
+                }
+
+                to_be_sent--;
+
+
+            }
+
+            current_window_size = (int)ceil ((double)(next_seqno - send_base)/ (double)DATA_SIZE);
+
+            printf("After loop Current window size is %d\n", current_window_size);
+
+
+
+
+            //printf("11111111111111111\n");
         }
         stop_timer();
     } while(1);
