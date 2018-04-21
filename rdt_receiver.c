@@ -33,7 +33,7 @@ int main(int argc, char **argv) {
     int optval; /* flag value for setsockopt */
     FILE *fp;
     char buffer[MSS_SIZE];
-    struct timeval tp;
+    struct timeval tp, current_time;
     int next_seqno = 0; // Variable that holds the value for the current required seqno
     
     // Loop for assigning packets with data_size 0 to the array of the tcp packets
@@ -211,6 +211,10 @@ int main(int argc, char **argv) {
         sndpkt = make_packet(0);
         sndpkt->hdr.ackno = next_seqno;
         sndpkt->hdr.ctr_flags = ACK;
+        // Get current time and add to the packet's time stamp
+        gettimeofday(&current_time, NULL);
+        sndpkt->hdr.time_stamp += current_time.tv_usec;
+
         if (sendto(sockfd, sndpkt, TCP_HDR_SIZE, 0, 
                 (struct sockaddr *) &clientaddr, clientlen) < 0) {
             error("ERROR in sendto");
@@ -219,4 +223,3 @@ int main(int argc, char **argv) {
     }
     return 0;
 }
-
