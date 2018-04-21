@@ -14,6 +14,7 @@ typedef struct {
     int ackno;
     int ctr_flags;
     int data_size;
+    long int time_stamp;
 }tcp_header;
 
 #define MSS_SIZE    1500
@@ -28,14 +29,6 @@ typedef struct {
 
 tcp_packet* make_packet(int seq);
 int get_data_size(tcp_packet *pkt);
-
-
-// Nodes for the buffer linked list
-typedef struct {
-	tcp_packet *buffer_pkt;
-	struct nodepkt *next_nodepkt;
-} nodepkt;
-
 
 
 
