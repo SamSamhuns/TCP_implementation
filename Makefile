@@ -8,6 +8,7 @@
 
 CC = gcc -c
 SHELL = /bin/bash
+LIBS = -lm
 
 # compiling flags here
 CFLAGS = -Wall -I.
@@ -32,7 +33,7 @@ TARGET:	$(OBJDIR) $(CLIENT)	$(SERVER)
 
 
 $(CLIENT):	$(CLIENT_OBJECTS)
-	$(LINKER)  $@  $(CLIENT_OBJECTS)
+	$(LINKER)  $@  $(CLIENT_OBJECTS) $(LIBS)
 	@echo "Link complete!"
 
 $(SERVER): $(SERVER_OBJECTS)
