@@ -33,7 +33,7 @@ int main(int argc, char **argv) {
     int optval; /* flag value for setsockopt */
     FILE *fp;
     char buffer[MSS_SIZE];
-    struct timeval tp, current_time;
+    struct timeval tp;
     int next_seqno = 0; // Variable that holds the value for the current required seqno
     
     // Loop for assigning packets with data_size 0 to the array of the tcp packets
@@ -113,22 +113,10 @@ int main(int argc, char **argv) {
             break;
         }
 
-        /* TEST PRINT CODE FOR DEBUG PURPOSES*//*
-        int ipt =0;
-        while ( ipt < buffer_size) {
-            printf("The hdr.seqno values in the array are %i with data_size %i\n", receiver_buffer[ipt]->hdr.seqno, receiver_buffer[ipt]->hdr.data_size );
-            ipt++;
-
-        }*/
-
-        gettimeofday(&tp, NULL);
-        VLOG(DEBUG, "%lu, %d, %d", tp.tv_sec, recvpkt->hdr.data_size, recvpkt->hdr.seqno);
-
         // If a packet with a higher seqno than currently expected is received 
         // check if the packet can be stored in the receiver buffer
         if ( next_seqno < recvpkt->hdr.seqno ) {
-            printf("Out of order packet received\n");
-            //printf("Next expected seqno in receiver is %i \n", next_seqno );
+            //printf("Out of order packet received\n");
             /*
             * For the receiver buffer, empty buffer packet seqno is -1 with data_size 0 so  
             * the rcvpkt's seqno number does not match with empty packet seqno's
@@ -137,7 +125,6 @@ int main(int argc, char **argv) {
             // Check for duplicate buffered packets in the receiver buffer
             iter = 0;
             int duplicate = 0;
-            int buffer_full = 1;
             while ( iter<buffer_size ) {
                 if ( receiver_buffer[iter]->hdr.seqno == recvpkt->hdr.seqno ) {
                     //printf("Duplicate packet not added to present buffer\n");
@@ -156,22 +143,18 @@ int main(int argc, char **argv) {
                     if ( receiver_buffer[iter]->hdr.seqno == -1 && receiver_buffer[iter]->hdr.data_size == 0 )
                     {
                         memcpy(receiver_buffer[iter], recvpkt, MSS_SIZE); 
-                        buffer_full = 0;           
                         break;
                     }
                     iter++;
                 }
             }
-            else {
-                //VLOG(INFO, "Out of order Packet Dropped\n\n");
-            }
-            if ( buffer_full == 1 && duplicate == 0 ) { // Buffer full and no duplicates
-                //VLOG(INFO, "Buffer is full: Packet Dropped\n\n");
-            }
         }
 
         // If the packet is received in order
         else if ( next_seqno == recvpkt->hdr.seqno ) {
+            gettimeofday(&tp, NULL);
+            VLOG(DEBUG, "%lu, %d, %d", tp.tv_sec, recvpkt->hdr.data_size, recvpkt->hdr.seqno);
+
             fseek(fp, recvpkt->hdr.seqno, SEEK_SET);
             fwrite(recvpkt->data, 1, recvpkt->hdr.data_size, fp);
 
@@ -191,7 +174,7 @@ int main(int argc, char **argv) {
                         fwrite(receiver_buffer[iter]->data, 1, receiver_buffer[iter]->hdr.data_size, fp);
 
                         // Update next_seqno to next required pkt
-                        next_seqno = receiver_buffer[iter]->hdr.seqno + receiver_buffer[iter]->hdr.data_size;; 
+                        next_seqno = receiver_buffer[iter]->hdr.seqno + receiver_buffer[iter]->hdr.data_size; 
 
                         // Set the written packet from buffer to be an empty packet
                         receiver_buffer[iter]->hdr.seqno = -1;
@@ -206,14 +189,13 @@ int main(int argc, char **argv) {
                 }
             }
         }
-        //printf("SEND PACKAGE LOOP next seqno = %i and recvpkt->hdr.seqno = %i and sndpck hdr ACK NO %i \n\n", next_seqno, recvpkt->hdr.seqno,sndpkt->hdr.ackno );
+        // printf("SEND PACKAGE LOOP next seqno = %i and recvpkt->hdr.seqno = %i and sndpck hdr ACK NO %i \n\n", next_seqno, recvpkt->hdr.seqno,sndpkt->hdr.ackno );
         // For out of order packets, send orginial required packet ACK             
         sndpkt = make_packet(0);
         sndpkt->hdr.ackno = next_seqno;
         sndpkt->hdr.ctr_flags = ACK;
-        // Get current time and add to the packet's time stamp
-        gettimeofday(&current_time, NULL);
-        sndpkt->hdr.time_stamp += current_time.tv_usec;
+        // Add the time_stamp value to sndpkt 
+        sndpkt->hdr.time_stamp = recvpkt->hdr.time_stamp;
 
         if (sendto(sockfd, sndpkt, TCP_HDR_SIZE, 0, 
                 (struct sockaddr *) &clientaddr, clientlen) < 0) {
