@@ -22,17 +22,16 @@
 #include "common.h"
 
 #define STDIN_FD 0
-//#define RETRY 50 //milli second 
-#define max_window_size 100000// Setting the max_window_size to 1000 as a window_size CONST
-int RETRY = 50; // retry time milli seconds
-long int est_RTT = 10;
-long int sample_RTT = 50;
-long int dev_RTT = 0;
+#define max_window_size 100000  // Setting the max_window_size to 100000 as a window_size CONST
+int RETRY = 50;                 // Retry time milli seconds
+float est_RTT = 10;             // Estimated RTT
+float sample_RTT = 50;          // Sample RTT
+float dev_RTT = 0;              // Deviation of RTT
 
-int window_size = 1;
-int dup_ack_seqno = 0; // To check if duplciate ackno has been sent from the receiver
-int whole_number = 0; //variable to keep track if whole number has been formed in congestion avoidance 
-int ssthresh = 64; // slow start threshold 
+int window_size = 1;            // Congestion window size
+int dup_ack_seqno = 0;          // To check if duplciate ackno has been sent from the receiver
+int whole_number = 0;           // Variable to keep track if whole number has been formed in congestion avoidance 
+int ssthresh = 64;              // Slow start threshold 
 
 int next_seqno=0;
 int send_base=0;
@@ -55,15 +54,18 @@ void resend_packet( int *next_seqno )
     // Calculates the index of the packet just after the last acked pkt
     int index_to_send = send_base / DATA_SIZE;
 
+    // Adds the tiemstamp in the packet being resent
+    gettimeofday(&begin_time, NULL);
+    send_window[index_to_send]->hdr.time_stamp = ( begin_time.tv_sec*1000LL + (begin_time.tv_usec/1000));
+
     if(sendto(sockfd, send_window[index_to_send], TCP_HDR_SIZE + get_data_size(send_window[index_to_send]), 0, 
             ( const struct sockaddr *)&serveraddr, serverlen) < 0)
     {
         error("sendto");
     };
     
-   
     ssthresh =  (int) ceil( (double)window_size/(double)2 );
-    printf("3 DUPLICAT ThRESHOLD %d\n",ssthresh );
+    printf("After retransmision SSTHRESH is %d\n",ssthresh );
     window_size = 1;
     whole_number = 0;
     //printf("send window seqno is %i and data size is %i  \n",send_window[index_to_send]->hdr.seqno, send_window[index_to_send]->hdr.data_size);
@@ -94,21 +96,14 @@ void stop_timer()
 void update_timer( tcp_packet *packet ) 
 {
     gettimeofday(&end_time, NULL);   
-    sample_RTT = (end_time.tv_usec - packet->hdr.time_stamp) / 1000; // Converting the u sec to milli sec
+    sample_RTT =(float) ((end_time.tv_sec*1000LL + (end_time.tv_usec/1000))  - packet->hdr.time_stamp);// In milli sec
 
-    est_RTT = (1 - 0.125) * est_RTT + (0.125 * sample_RTT);
-    dev_RTT = (1 - 0.25) * dev_RTT + (0.25 * abs(sample_RTT - est_RTT) );
+    // Calculate the extiamted RTT and Deviation in RTT
+    est_RTT = ((1.0 - 0.125) * est_RTT) + (0.125 * sample_RTT);
+    dev_RTT = ((1.0 - 0.25) * dev_RTT) + (0.25 * fabs(sample_RTT - est_RTT));
 
     // Calculating the delay or the retry time
-    RETRY = est_RTT + (4 * dev_RTT);
-
-    /*
-    timer.it_interval.tv_sec = delay / 1000;    // sets an interval of the timer
-    timer.it_interval.tv_usec = (delay % 1000) * 1000;  
-    timer.it_value.tv_sec = delay / 1000;       // sets an initial value
-    timer.it_value.tv_usec = (delay % 1000) * 1000;
-    */
-    
+    RETRY = (int) ( est_RTT + (4 * dev_RTT));    
 }
 
 /*
@@ -142,7 +137,10 @@ int main (int argc, char **argv)
     int current_window_size = 0;
     int to_be_sent = 0; 
     FILE *fp;
+    FILE *csv_fp;
 
+    //system("touch CWND.csv");
+    csv_fp = fopen("CWND.csv", "w");
     next_seqno_pointer = &next_seqno;
     /* check command line arguments */
     if (argc != 4) {
@@ -180,6 +178,7 @@ int main (int argc, char **argv)
 
     int position_buffer = 0; //position in the buffer where we are inserting the read packet
     int base = 0;
+    // Loading all the contents of the file to be sent into our sned_window buffer
     while(1){
         len = fread(buffer, 1, DATA_SIZE,fp);
         if(len <= 0){
@@ -205,7 +204,6 @@ int main (int argc, char **argv)
     send_base = 0;
     int send_base_initial = 0; // base var to keep track of the base send for the first window_size packets
  
-
     // Send the first window_size packets
     position_buffer = 0;
     int i = 0;
@@ -218,7 +216,7 @@ int main (int argc, char **argv)
 
         // Adding a begin timeval to the packet being sent
         gettimeofday(&begin_time, NULL);
-        send_window[position_buffer]->hdr.time_stamp = begin_time.tv_usec;
+        send_window[position_buffer]->hdr.time_stamp = ( begin_time.tv_sec*1000LL + (begin_time.tv_usec/1000));
 
         VLOG(DEBUG, "Sending packet %d to %s", 
         send_base_initial, inet_ntoa(serveraddr.sin_addr));
@@ -237,11 +235,11 @@ int main (int argc, char **argv)
         i++;
     }
     
+    //******************************************************************************MAIN SENDER LOOP*****************
     // Main code for traversing the file and sending all the packets
     int eof_reach = 0; // End of file flag to check if the end of file has been reached in the sender's fread pointer
     //Wait for ACK
-    do {  
-        printf("%i IS THE DELAY\n", RETRY ); 
+    do {   
         start_timer();
         if(recvfrom(sockfd, recv_buffer, MSS_SIZE, 0,
                     (struct sockaddr *) &serveraddr, (socklen_t *)&serverlen) < 0)
@@ -249,7 +247,6 @@ int main (int argc, char **argv)
             error("recvfrom");
         }
         recvpkt = (tcp_packet *) recv_buffer;
-        //printf("%d \n", get_data_size(recvpkt));
         assert(get_data_size(recvpkt) <= DATA_SIZE);
 
         //Calculating the new value of the RETRY timeout time
@@ -266,11 +263,9 @@ int main (int argc, char **argv)
         {
             dup_num = 0;
             printf("3 duplicate acks forced timeout\n");
-            // If three duplicate 
             resend_packet( next_seqno_pointer );
             continue;         
         }
-        //printf("recvpkt ackno = %i, send_base =  %i\n", recvpkt->hdr.ackno, send_base  );
 
         if ( recvpkt->hdr.ackno >= send_base ) {
             //printf("Inside this if statement\n");
@@ -298,13 +293,12 @@ int main (int argc, char **argv)
                         (const struct sockaddr *)&serveraddr, serverlen);
                         resend_final_pkt++;
                     }
+                    fclose(csv_fp);
                     return 0;
                 }
 
-                //printf("Inside if statement rcvpck ackno = %i, send_base =  %i\n",recvpkt->hdr.ackno, send_base );
                 current_index = send_base / DATA_SIZE; 
                 send_base = send_base + send_window[current_index]->hdr.data_size;
-                //printf("Send BASE IS %d\n", send_base);
 
                 VLOG(DEBUG, "Sending packet %d to %s\n", 
                 send_base , inet_ntoa(serveraddr.sin_addr));
@@ -321,7 +315,7 @@ int main (int argc, char **argv)
                 {
                     // Adding a begin timeval to the packet being sent
                     gettimeofday(&begin_time, NULL);
-                    send_window[next_index]->hdr.time_stamp = begin_time.tv_usec;
+                    send_window[next_index]->hdr.time_stamp = ( begin_time.tv_sec*1000LL + (begin_time.tv_usec/1000));
 
                     if(sendto(sockfd, send_window[next_index], TCP_HDR_SIZE + get_data_size(send_window[next_index]), 0, 
                                 ( const struct sockaddr *)&serveraddr, serverlen) < 0)
@@ -331,7 +325,12 @@ int main (int argc, char **argv)
                     next_seqno += send_window[next_index]->hdr.data_size;
 
                     printf("Threshold is %d\n", ssthresh);
-                    printf("WINDOW SIZE IS %d\n", window_size);
+                    printf("Window size is %d\n", window_size);
+
+                    //Writing the congestion window size values and time values to the csv file
+                    gettimeofday(&begin_time, NULL);
+                    fprintf( csv_fp, "%llu, %i\n", ( begin_time.tv_sec*1000LL + (begin_time.tv_usec/1000)) , window_size);
+ 
 
                     if(window_size <= ssthresh){
 
@@ -341,9 +340,9 @@ int main (int argc, char **argv)
                    
                    else if(window_size > ssthresh){
                         whole_number++;
-                        printf("Congestion avoidance\n");
+                        printf("CONGESTION AVOIDANCE\n");
                         printf("Whole number is %d\n", whole_number);
-                        printf("window_sizeis %d\n", window_size);
+                        printf("Window size is %d\n", window_size);
                         
                         if(whole_number > window_size){
                             printf("Window size has increased\n");
@@ -353,14 +352,14 @@ int main (int argc, char **argv)
                         }
                    }
                 }
-            }
+           }
 
             //printf("Send base is %d\n", send_base);
             //printf("Next seqno is %d\n", next_seqno);
             current_window_size = (int)ceil ((double)(next_seqno - send_base)/ (double)DATA_SIZE);
             to_be_sent = window_size - current_window_size;
 
-            printf("Before loop Current window size is %d\n", current_window_size);
+            //printf("Before loop Current window size is %d\n", current_window_size);
 
             int check = 0;//check for end of file
             while(to_be_sent > 0){
@@ -377,7 +376,7 @@ int main (int argc, char **argv)
                 if(check != 1){
 
                     gettimeofday(&begin_time, NULL);
-                    send_window[next_index]->hdr.time_stamp = begin_time.tv_usec;
+                    send_window[next_index]->hdr.time_stamp = ( begin_time.tv_sec*1000LL + (begin_time.tv_usec/1000));
 
                     if(sendto(sockfd, send_window[next_index], TCP_HDR_SIZE + get_data_size(send_window[next_index]), 0, 
                                     ( const struct sockaddr *)&serveraddr, serverlen) < 0)
@@ -389,7 +388,7 @@ int main (int argc, char **argv)
                 to_be_sent--;
             }
             current_window_size = (int)ceil ((double)(next_seqno - send_base)/ (double)DATA_SIZE);
-            printf("After loop Current window size is %d\n", current_window_size);
+            //printf("After loop Current window size is %d\n", current_window_size);
 
         }
         stop_timer();
