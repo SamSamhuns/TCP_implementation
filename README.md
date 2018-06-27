@@ -23,11 +23,4 @@ mininet> xterm h1 h2
 
 
 ### verify the two files
-
 cksum FILE_RCVD small_file.bin
-
-
-## How to test Task 2 ?
-
-
-
