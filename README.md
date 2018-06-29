@@ -1,6 +1,9 @@
 # project2-Teona-Sam
 Project II (Task I): Transmission Control Protocol (TCP)
 
+## Requirements
+mininet VM. Can be built from source or a pre-built Mininet VM can be downloaded 
+
 ## How to Build
 
 cd ~/github/project2/rdt2.0/src
