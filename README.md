@@ -9,9 +9,7 @@ mininet VM. Can be built from source or a pre-built Mininet VM can be downloaded
 ## How to Build
 Use the make file in the `src` directory to build the executable files.
 ```
-cd ~/github/project2/rdt2.0/src
-
-mininet@mininet-vm:~/github/project2/rdt2.0/src$ make
+mininet@mininet-vm:~$ make
 ```
 
 ### Run mininet
