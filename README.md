@@ -1,29 +1,38 @@
-# project2-Teona-Sam
+# TCP implementation
+## project2-Teona-Sam
 Project II (Task I): Transmission Control Protocol (TCP)
+This TCP implementation uses congestion control and ss Threshold to model the transmission control that happens in TCP over internet connections.
 
 ## Requirements
-mininet VM. Can be built from source or a pre-built Mininet VM can be downloaded 
+mininet VM. Can be built from source or a pre-built Mininet VM can be downloaded at http://mininet.org/download/.
 
 ## How to Build
-
+Use the make file in the `src` directory to build the executable files.
+```
 cd ~/github/project2/rdt2.0/src
 
 mininet@mininet-vm:~/github/project2/rdt2.0/src$ make
+```
 
-
-### run mininet
+### Run mininet
+Start the mininet servers ith different parameters for bandwidth, delay and loss proportions.
+```
 sudo mn --link tc,bw=10,delay=10ms,loss=2
 
 mininet> xterm h1 h2
-
+```
 ### Two terminal will popup for h1 and h2; Run sender and receiver on these two terminal
 
-### terminal node h1:
-./rdt2.0/obj/rdt_receiver 60001 FILE_RCVD
+### Terminal node h1:
+```
+./rdt2.0/obj/rdt_receiver <Port num i.e. 60001> <rcv_file_name>
+```
+### Terminal node h2:
+```
+./rdt2.0/obj/rdt_sender 10.0.0.1  <Same Port num as receiver i.e. 60001> <send_file_name.bin>
+```
 
-### terminal node h2:
-./rdt2.0/obj/rdt_sender 10.0.0.1 60001 small_file.bin
-
-
-### verify the two files
-cksum FILE_RCVD small_file.bin
+### Verify the two files are the same
+```
+cksum <rcv_file_name> <send_file_name.bin>
+```
