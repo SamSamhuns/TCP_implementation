@@ -3,7 +3,8 @@
 Project II (Task I): Transmission Control Protocol (TCP)
 This TCP implementation uses congestion control and ss Threshold to model the transmission control that happens in TCP over internet connections.
 
-<img src="https://raw.githubusercontent.co/SamSamhuns/TCP_implementation/master/Grapher-congestion-window-output.png">
+Sample Congestion window graph.
+<img src="https://raw.githubusercontent.com/SamSamhuns/TCP_implementation/master/Grapher-congestion-window-output.png" width='200%'>
 
 ## Requirements
 mininet VM. Can be built from source or a pre-built Mininet VM can be downloaded at http://mininet.org/download/.
