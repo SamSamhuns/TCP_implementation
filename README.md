@@ -1,4 +1,7 @@
 # TCP implementation
+
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/3285d3db8d1f4023bd1bc66dcdb265f1)](https://www.codacy.com/app/samhunsadamant/TCP_implementation?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=SamSamhuns/TCP_implementation&amp;utm_campaign=Badge_Grade) [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+
 ## project2-Teona-Sam
 Project II (Task I): Transmission Control Protocol (TCP)
 This TCP implementation uses congestion control and ss Threshold to model the transmission control that happens in TCP over internet connections.
