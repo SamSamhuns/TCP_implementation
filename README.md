@@ -29,11 +29,11 @@ mininet> xterm h1 h2
 
 ### Terminal node h1:
 ```
-./rdt2.0/obj/rdt_receiver <Port num i.e. 60001> <rcv_file_name>
+rdt_receiver <Port num i.e. 60001> <rcv_file_name>
 ```
 ### Terminal node h2:
 ```
-./rdt2.0/obj/rdt_sender 10.0.0.1  <Same Port num as receiver i.e. 60001> <send_file_name.bin>
+rdt_sender 10.0.0.1  <Same Port num as receiver i.e. 60001> <send_file_name.bin>
 ```
 
 ### Verify the two files are the same and generate a congestion window graph
