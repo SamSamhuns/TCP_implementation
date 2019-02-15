@@ -20,15 +20,14 @@ for n in fp:
     congw.append(int(n[1]))
 
 
-
 fig = plt.figure(figsize=(30, 8))
 ax = fig.add_subplot(111)
-ax.plot(time,congw)
+ax.plot(time, congw)
 
 plt.xlabel('Time (milli sec, unix epoch time)', fontsize=20)
 plt.ylabel('Congestion Window', fontsize=20)
 
-plt.savefig("Congestion Window Graph with time.pdf" , dpi=350)
+plt.savefig("Congestion Window Graph with time.pdf", dpi=350)
 
 plt.show()
 fp.close()
