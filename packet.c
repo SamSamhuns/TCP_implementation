@@ -14,15 +14,15 @@ static tcp_packet zero_packet = {.hdr={0}};
  */
 tcp_packet* make_packet(int len)
 {
-    tcp_packet *pkt;
-    pkt = malloc(TCP_HDR_SIZE + len);
+        tcp_packet *pkt;
+        pkt = malloc(TCP_HDR_SIZE + len);
 
-    *pkt = zero_packet;
-    pkt->hdr.data_size = len;
-    return pkt;
+        *pkt = zero_packet;
+        pkt->hdr.data_size = len;
+        return pkt;
 }
 
 int get_data_size(tcp_packet *pkt)
 {
-    return pkt->hdr.data_size;
+        return pkt->hdr.data_size;
 }
